@@ -11,22 +11,25 @@ public class CoinService
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "RecifeCryptoAPI");
     }
 
-    public async Task<decimal> GetPriceAsync(string cryptoId)
+    // Agora retorna um dicionário com múltiplas moedas (usd, brl)
+    public async Task<Dictionary<string, decimal>?> GetPricesAsync(string cryptoId)
     {
         try
         {
-            var url = $"https://api.coingecko.com/api/v3/simple/price?ids={cryptoId}&vs_currencies=usd";
+            // Adicionamos ",brl" na query string da URL
+            var url = $"https://api.coingecko.com/api/v3/simple/price?ids={cryptoId.ToLower()}&vs_currencies=usd,brl";
+            
             var response = await _httpClient.GetFromJsonAsync<Dictionary<string, Dictionary<string, decimal>>>(url);
             
-            if (response != null && response.ContainsKey(cryptoId))
+            if (response != null && response.ContainsKey(cryptoId.ToLower()))
             {
-                return response[cryptoId]["usd"];
+                return response[cryptoId.ToLower()];
             }
-            return 0;
+            return null;
         }
         catch
         {
-            return 0;
+            return null;
         }
     }
 }

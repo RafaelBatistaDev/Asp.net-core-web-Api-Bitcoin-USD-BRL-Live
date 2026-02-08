@@ -26,11 +26,10 @@ public class MoedasController : ControllerBase
         return await _context.Moedas.ToListAsync();
     }
 
-    // GET: api/Moedas/live/btc (Busca o preço REAL na internet)
+    // GET: api/Moedas/live/btc (Busca o preço REAL em USD e BRL)
     [HttpGet("live/{simbolo}")]
     public async Task<IActionResult> GetLivePrice(string simbolo)
     {
-        // Mapeamento simples de símbolo para o ID da CoinGecko
         string cryptoId = simbolo.ToLower() switch
         {
             "btc" => "bitcoin",
@@ -39,14 +38,17 @@ public class MoedasController : ControllerBase
             _ => simbolo.ToLower()
         };
 
-        var preco = await _coinService.GetPriceAsync(cryptoId);
+        // Agora chamamos GetPricesAsync (plural) que retorna o dicionário
+        var precos = await _coinService.GetPricesAsync(cryptoId);
 
-        if (preco == 0) return NotFound("Moeda não encontrada ou erro na API externa.");
+        if (precos == null) 
+            return NotFound("Moeda não encontrada ou erro na API externa.");
 
         return Ok(new
         {
             Simbolo = simbolo.ToUpper(),
-            PrecoUSD = preco,
+            PrecoUSD = precos["usd"],
+            PrecoBRL = precos["brl"], // <--- Agora exibindo o Real!
             Origem = "CoinGecko Real-Time",
             DataConsulta = DateTime.Now
         });
