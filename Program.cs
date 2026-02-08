@@ -1,25 +1,34 @@
 using Scalar.AspNetCore;
-using Microsoft.EntityFrameworkCore; // Para o UseSqlite
-using API.Data; // Para o seu AppDbContext
+using Microsoft.EntityFrameworkCore;
+using API.Data;
+using API.Services; // Adicione este namespace para o serviço de cotação
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. PRIMEIRO: Configura os serviços (Builder)
+// --- CONFIGURAÇÃO DOS SERVIÇOS (BUILDER) ---
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi(); 
 
-// 2. CONFIGURA O BANCO: Sempre dentro da parte do builder
+// Configura o banco de dados SQLite
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=moedas.db"));
 
+// REGISTRA O SERVIÇO DE PREÇOS REAIS
+builder.Services.AddHttpClient<CoinService>(); 
+
 var app = builder.Build();
 
-// 3. DEPOIS: Configura o pipeline (App)
+// --- CONFIGURAÇÃO DO PIPELINE (APP) ---
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference(); 
 }
+
+// Redireciona a raiz para o Scalar facilitar sua vida
+app.MapGet("/", () => Results.Redirect("/scalar/v1"));
 
 app.UseHttpsRedirection();
 app.UseAuthorization();

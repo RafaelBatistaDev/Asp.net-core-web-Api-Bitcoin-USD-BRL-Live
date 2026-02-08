@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using API.Data;
 using API.Models;
+using API.Services;
 
 namespace API.Controllers;
 
@@ -7,19 +10,54 @@ namespace API.Controllers;
 [Route("api/[controller]")]
 public class MoedasController : ControllerBase
 {
-    private static List<Moeda> _moedas = new()
-    {
-        new Moeda { Id = 1, Nome = "Bitcoin", Simbolo = "BTC", Preco = 450000 },
-        new Moeda { Id = 2, Nome = "Ethereum", Simbolo = "ETH", Preco = 15000 }
-    };
+    private readonly AppDbContext _context;
+    private readonly CoinService _coinService;
 
+    public MoedasController(AppDbContext context, CoinService coinService)
+    {
+        _context = context;
+        _coinService = coinService;
+    }
+
+    // GET: api/Moedas (Lista as moedas do seu banco local)
     [HttpGet]
-    public ActionResult<List<Moeda>> GetAll() => Ok(_moedas);
-
-    [HttpPost]
-    public ActionResult Add(Moeda novaMoeda)
+    public async Task<ActionResult<IEnumerable<Moeda>>> GetMoedas()
     {
-        _moedas.Add(novaMoeda);
-        return CreatedAtAction(nameof(GetAll), novaMoeda);
+        return await _context.Moedas.ToListAsync();
+    }
+
+    // GET: api/Moedas/live/btc (Busca o preço REAL na internet)
+    [HttpGet("live/{simbolo}")]
+    public async Task<IActionResult> GetLivePrice(string simbolo)
+    {
+        // Mapeamento simples de símbolo para o ID da CoinGecko
+        string cryptoId = simbolo.ToLower() switch
+        {
+            "btc" => "bitcoin",
+            "eth" => "ethereum",
+            "sol" => "solana",
+            _ => simbolo.ToLower()
+        };
+
+        var preco = await _coinService.GetPriceAsync(cryptoId);
+
+        if (preco == 0) return NotFound("Moeda não encontrada ou erro na API externa.");
+
+        return Ok(new
+        {
+            Simbolo = simbolo.ToUpper(),
+            PrecoUSD = preco,
+            Origem = "CoinGecko Real-Time",
+            DataConsulta = DateTime.Now
+        });
+    }
+
+    // POST: api/Moedas (Salva uma moeda no seu banco)
+    [HttpPost]
+    public async Task<ActionResult<Moeda>> PostMoeda(Moeda moeda)
+    {
+        _context.Moedas.Add(moeda);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetMoedas), new { id = moeda.Id }, moeda);
     }
 }
